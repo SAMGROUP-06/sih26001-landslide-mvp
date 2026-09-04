@@ -1,358 +1,1130 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>SIH26001 — Landslide Risk Monitoring</title>
+    <title>SIH26001 - Landslide Risk Monitoring</title>
 
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
+    <!-- Leaflet Map -->
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
 
-  <style>
-    * {
-      box-sizing: border-box;
-    }
+    <style>
+        * {
+            box-sizing: border-box;
+        }
 
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f4f6f8;
-      color: #222;
-    }
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f4f7fb;
+            color: #172033;
+        }
 
-    header {
-      background: #1f2937;
-      color: white;
-      padding: 18px 24px;
-    }
+        header {
+            background: #123b5d;
+            color: white;
+            padding: 18px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
 
-    header h1 {
-      margin: 0;
-      font-size: 24px;
-    }
+        header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
 
-    header p {
-      margin: 5px 0 0;
-      opacity: 0.8;
-    }
+        header p {
+            margin: 5px 0 0;
+            opacity: 0.85;
+            font-size: 14px;
+        }
 
-    .container {
-      padding: 20px;
-      max-width: 1400px;
-      margin: auto;
-    }
+        .status {
+            padding: 8px 13px;
+            border-radius: 20px;
+            background: #ffffff22;
+            font-size: 13px;
+        }
 
-    .status {
-      background: white;
-      padding: 14px;
-      border-radius: 10px;
-      margin-bottom: 15px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
+        .container {
+            width: min(1250px, 95%);
+            margin: 20px auto;
+        }
 
-    #map {
-      height: 600px;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
-    }
+        .dashboard {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
 
-    .legend {
-      background: white;
-      padding: 12px;
-      margin-top: 15px;
-      border-radius: 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
+        .card {
+            background: white;
+            border-radius: 14px;
+            padding: 18px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        }
 
-    .dot {
-      display: inline-block;
-      width: 13px;
-      height: 13px;
-      border-radius: 50%;
-      margin-right: 5px;
-    }
+        .card h2 {
+            margin-top: 0;
+            font-size: 19px;
+        }
 
-    .high {
-      background: red;
-    }
+        #map {
+            height: 600px;
+            border-radius: 12px;
+            overflow: hidden;
+        }
 
-    .medium {
-      background: orange;
-    }
+        .zone-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
 
-    .low {
-      background: green;
-    }
+        .zone-name {
+            font-weight: bold;
+            font-size: 16px;
+        }
 
-    button {
-      padding: 9px 14px;
-      border: none;
-      border-radius: 7px;
-      cursor: pointer;
-      background: #2563eb;
-      color: white;
-      margin-top: 8px;
-    }
+        .risk {
+            display: inline-block;
+            margin-top: 6px;
+            padding: 5px 9px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
 
-    button:hover {
-      opacity: 0.9;
-    }
+        .low {
+            background: #dff6e5;
+            color: #167a35;
+        }
 
-    .error {
-      color: #b91c1c;
-      font-weight: bold;
-    }
-  </style>
+        .moderate {
+            background: #fff0bd;
+            color: #8a6400;
+        }
+
+        .high {
+            background: #ffdede;
+            color: #b30000;
+        }
+
+        .score {
+            margin-top: 6px;
+            font-size: 14px;
+        }
+
+        button {
+            border: none;
+            border-radius: 8px;
+            padding: 10px 14px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .alert-btn {
+            background: #c62828;
+            color: white;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        .alert-btn:hover {
+            background: #a51f1f;
+        }
+
+        .primary-btn {
+            background: #1266d6;
+            color: white;
+        }
+
+        .secondary-btn {
+            background: #e9eef5;
+            color: #172033;
+        }
+
+        form {
+            display: grid;
+            gap: 10px;
+        }
+
+        label {
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        input,
+        textarea,
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccd3dd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        textarea {
+            min-height: 90px;
+            resize: vertical;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .result {
+            padding: 14px;
+            border-radius: 10px;
+            background: #f2f6fb;
+            margin-top: 12px;
+            display: none;
+        }
+
+        .result strong {
+            font-size: 20px;
+        }
+
+        .success {
+            color: #147333;
+        }
+
+        .error {
+            color: #b00020;
+        }
+
+        .info-box {
+            background: #eef6ff;
+            border-left: 4px solid #1266d6;
+            padding: 12px;
+            border-radius: 7px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .legend span {
+            padding: 6px 9px;
+            border-radius: 15px;
+            font-size: 12px;
+        }
+
+        footer {
+            text-align: center;
+            padding: 25px;
+            color: #667085;
+            font-size: 13px;
+        }
+
+        @media (max-width: 850px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+
+            #map {
+                height: 450px;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 
 <body>
 
 <header>
-  <h1>🌍 SIH26001 — Landslide Risk Monitoring</h1>
-  <p>Real-time Landslide Risk Zone Dashboard</p>
+    <div>
+        <h1>🌍 Landslide Risk Monitoring</h1>
+        <p>SIH26001 — Real-time Risk Monitoring & Alert System</p>
+    </div>
+
+    <div class="status" id="backendStatus">
+        🔄 Connecting to backend...
+    </div>
 </header>
+
 
 <div class="container">
 
-  <div class="status">
-    <strong>Backend Status:</strong>
-    <span id="status">Connecting...</span>
-  </div>
+    <div class="info-box">
+        <strong>System:</strong>
+        The system evaluates landslide risk using rainfall, slope,
+        elevation, soil moisture, historical landslide density,
+        road distance and vegetation information.
+    </div>
 
-  <div id="map"></div>
 
-  <div class="legend">
-    <strong>Risk Level:</strong><br><br>
+    <div class="dashboard">
 
-    <span class="dot high"></span> High Risk &nbsp;&nbsp;
-    <span class="dot medium"></span> Medium Risk &nbsp;&nbsp;
-    <span class="dot low"></span> Low Risk
-  </div>
+        <!-- MAP -->
+        <div class="card">
+            <h2>🗺️ Landslide Risk Map</h2>
+
+            <div id="map"></div>
+
+            <div class="legend">
+                <span class="low">🟢 Low Risk</span>
+                <span class="moderate">🟡 Moderate Risk</span>
+                <span class="high">🔴 High Risk</span>
+            </div>
+        </div>
+
+
+        <!-- ZONES -->
+        <div class="card">
+            <h2>📍 Risk Zones</h2>
+
+            <div id="zonesContainer">
+                Loading zones...
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- PREDICTION -->
+    <div class="card" style="margin-top:20px;">
+        <h2>🔮 Landslide Risk Prediction</h2>
+
+        <p style="font-size:13px;color:#667085;">
+            Enter environmental parameters to calculate the predicted
+            landslide risk score.
+        </p>
+
+        <form id="predictionForm">
+
+            <div class="form-grid">
+
+                <div>
+                    <label>Rainfall - 24 Hours (mm)</label>
+                    <input
+                        type="number"
+                        step="0.1"
+                        name="rainfall_mm_24h"
+                        value="80"
+                        required
+                    >
+                </div>
+
+                <div>
+                    <label>Rainfall - 7 Days (mm)</label>
+                    <input
+                        type="number"
+                        step="0.1"
+                        name="rainfall_mm_7d"
+                        value="250"
+                        required
+                    >
+                </div>
+
+                <div>
+                    <label>Slope (degrees)</label>
+                    <input
+                        type="number"
+                        step="0.1"
+                        name="slope_deg"
+                        value="30"
+                        required
+                    >
+                </div>
+
+                <div>
+                    <label>Elevation (m)</label>
+                    <input
+                        type="number"
+                        step="1"
+                        name="elevation_m"
+                        value="1000"
+                        required
+                    >
+                </div>
+
+                <div>
+                    <label>Soil Moisture</label>
+                    <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="1"
+                        name="soil_moisture"
+                        value="0.6"
+                        required
+                    >
+                </div>
+
+                <div>
+                    <label>Historical Landslide Density</label>
+                    <input
+                        type="number"
+                        step="0.01"
+                        name="historical_landslide_density"
+                        value="1.5"
+                        required
+                    >
+                </div>
+
+                <div>
+                    <label>Distance to Road (km)</label>
+                    <input
+                        type="number"
+                        step="0.01"
+                        name="distance_to_road_km"
+                        value="3"
+                        required
+                    >
+                </div>
+
+                <div>
+                    <label>NDVI Vegetation Index</label>
+                    <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="1"
+                        name="ndvi_vegetation_index"
+                        value="0.5"
+                        required
+                    >
+                </div>
+
+            </div>
+
+            <button class="primary-btn" type="submit">
+                🔮 Calculate Risk
+            </button>
+
+        </form>
+
+        <div class="result" id="predictionResult"></div>
+    </div>
+
+
+    <!-- CITIZEN REPORT -->
+    <div class="card" style="margin-top:20px;">
+        <h2>👥 Citizen Landslide Report</h2>
+
+        <p style="font-size:13px;color:#667085;">
+            Citizens can report cracks or slope movement with
+            geographical coordinates.
+        </p>
+
+        <form id="citizenForm">
+
+            <div class="form-grid">
+
+                <div>
+                    <label>Latitude</label>
+                    <input
+                        type="number"
+                        step="any"
+                        name="lat"
+                        placeholder="Example: 25.51"
+                        required
+                    >
+                </div>
+
+                <div>
+                    <label>Longitude</label>
+                    <input
+                        type="number"
+                        step="any"
+                        name="lon"
+                        placeholder="Example: 90.21"
+                        required
+                    >
+                </div>
+
+            </div>
+
+            <div>
+                <label>Description</label>
+                <textarea
+                    name="description"
+                    placeholder="Describe crack, slope movement or ground movement..."
+                    required
+                ></textarea>
+            </div>
+
+            <div>
+                <label>Photo (optional)</label>
+                <input type="file" name="photo" accept="image/*">
+            </div>
+
+            <button class="primary-btn" type="submit">
+                📤 Submit Report
+            </button>
+
+        </form>
+
+        <div class="result" id="citizenResult"></div>
+    </div>
+
+
+    <!-- MANUAL ALERT -->
+    <div class="card" style="margin-top:20px;">
+        <h2>🚨 Emergency Alert</h2>
+
+        <div class="info-box">
+            Select a zone from the map or risk-zone list and use
+            <strong>Trigger Alert</strong>.
+            The request will be sent to the FastAPI backend,
+            which can send the SMS through Twilio when the
+            Twilio environment variables are configured correctly.
+        </div>
+
+        <select id="alertZoneSelect">
+            <option value="">Select a zone</option>
+        </select>
+
+        <button
+            class="alert-btn"
+            onclick="manualAlert()"
+        >
+            🚨 Trigger Emergency Alert
+        </button>
+
+        <div class="result" id="alertResult"></div>
+    </div>
 
 </div>
 
+
+<footer>
+    SIH26001 — Landslide Risk Monitoring MVP
+</footer>
+
+
+<!-- Leaflet -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 
 <script>
 
-  // YOUR LIVE RENDER BACKEND
-  const API_URL =
-    "https://sih26001-landslide-mvp.onrender.com/zones";
+    /*
+    ============================================================
+    IMPORTANT
+    ============================================================
 
-  // Default map position
-  const map = L.map("map").setView([30.0668, 79.0193], 7);
+    Replace this with your DEPLOYED FASTAPI BACKEND URL.
 
-  L.tileLayer(
-    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    {
-      attribution: "&copy; OpenStreetMap contributors"
-    }
-  ).addTo(map);
+    Example:
 
+    const BACKEND_URL =
+        "https://your-backend.onrender.com";
 
-  function getRiskColor(zone) {
+    DO NOT put your Twilio SID or Auth Token here.
+    */
 
-    const level =
-      String(
-        zone.risk_level ||
-        zone.risk ||
-        zone.level ||
-        ""
-      ).toLowerCase();
-
-    const score =
-      Number(
-        zone.risk_score ??
-        zone.score ??
-        0
-      );
-
-    if (
-      level.includes("high") ||
-      score >= 0.7
-    ) {
-      return "red";
-    }
-
-    if (
-      level.includes("medium") ||
-      score >= 0.4
-    ) {
-      return "orange";
-    }
-
-    return "green";
-  }
+    const BACKEND_URL = "YOUR_BACKEND_URL";
 
 
-  function getCoordinates(zone) {
+    /*
+    ============================================================
+    MAP INITIALIZATION
+    ============================================================
+    */
 
-    const lat =
-      zone.lat ??
-      zone.latitude;
+    const map = L.map("map").setView([25.8, 92.5], 6);
 
-    const lon =
-      zone.lon ??
-      zone.lng ??
-      zone.longitude;
-
-    if (
-      typeof lat === "number" &&
-      typeof lon === "number"
-    ) {
-      return [lat, lon];
-    }
-
-    return null;
-  }
+    L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+            maxZoom: 18,
+            attribution: "&copy; OpenStreetMap contributors"
+        }
+    ).addTo(map);
 
 
-  async function loadZones() {
+    let markers = [];
 
-    const status =
-      document.getElementById("status");
+    let zonesData = [];
 
-    try {
 
-      status.textContent =
-        "Loading risk zones...";
+    /*
+    ============================================================
+    RISK COLOR
+    ============================================================
+    */
 
-      const response =
-        await fetch(API_URL);
+    function getRiskColor(risk) {
 
-      if (!response.ok) {
-        throw new Error(
-          "HTTP " + response.status
-        );
-      }
-
-      const data =
-        await response.json();
-
-      console.log("Zones received:", data);
-
-      status.textContent =
-        "🟢 Connected — " +
-        (Array.isArray(data)
-          ? data.length
-          : (data.zones?.length || 0)) +
-        " zones loaded";
-
-      const zones =
-        Array.isArray(data)
-          ? data
-          : (data.zones || []);
-
-      zones.forEach(zone => {
-
-        const coordinates =
-          getCoordinates(zone);
-
-        if (!coordinates) {
-          console.warn(
-            "No coordinates found:",
-            zone
-          );
-          return;
+        if (risk >= 0.6) {
+            return "red";
         }
 
+        if (risk >= 0.35) {
+            return "orange";
+        }
+
+        return "green";
+    }
+
+
+    function getRiskLevel(risk) {
+
+        if (risk >= 0.6) {
+            return "high";
+        }
+
+        if (risk >= 0.35) {
+            return "moderate";
+        }
+
+        return "low";
+    }
+
+
+    /*
+    ============================================================
+    BACKEND STATUS
+    ============================================================
+    */
+
+    async function checkBackend() {
+
+        const status =
+            document.getElementById("backendStatus");
+
+        if (
+            !BACKEND_URL ||
+            BACKEND_URL === "YOUR_BACKEND_URL"
+        ) {
+
+            status.innerHTML =
+                "⚠️ Backend URL not configured";
+
+            return false;
+        }
+
+        try {
+
+            const response =
+                await fetch(BACKEND_URL + "/");
+
+            if (!response.ok) {
+                throw new Error("Backend unavailable");
+            }
+
+            const data =
+                await response.json();
+
+            status.innerHTML =
+                "🟢 Backend Connected";
+
+            return true;
+
+        } catch (error) {
+
+            status.innerHTML =
+                "🔴 Backend Connection Failed";
+
+            console.error(error);
+
+            return false;
+        }
+    }
+
+
+    /*
+    ============================================================
+    LOAD ZONES
+    ============================================================
+    */
+
+    async function loadZones() {
+
+        const container =
+            document.getElementById("zonesContainer");
+
+        try {
+
+            if (
+                !BACKEND_URL ||
+                BACKEND_URL === "YOUR_BACKEND_URL"
+            ) {
+
+                throw new Error(
+                    "Backend URL is not configured."
+                );
+            }
+
+            const response =
+                await fetch(BACKEND_URL + "/zones");
+
+            if (!response.ok) {
+                throw new Error(
+                    "Unable to load zones."
+                );
+            }
+
+            const data =
+                await response.json();
+
+            zonesData = data.zones || [];
+
+            container.innerHTML = "";
+
+            clearMarkers();
+
+            populateAlertDropdown();
+
+            zonesData.forEach(zone => {
+
+                addZoneToMap(zone);
+
+                addZoneCard(zone);
+
+            });
+
+        } catch (error) {
+
+            console.error(error);
+
+            container.innerHTML = `
+                <div class="error">
+                    ❌ Backend connection failed.
+                    <br><br>
+                    Check your BACKEND_URL and make sure
+                    the FastAPI backend is running.
+                </div>
+            `;
+        }
+    }
+
+
+    /*
+    ============================================================
+    ADD ZONE TO MAP
+    ============================================================
+    */
+
+    function addZoneToMap(zone) {
+
+        const risk =
+            Number(zone.risk_score || 0);
+
         const color =
-          getRiskColor(zone);
+            getRiskColor(risk);
 
         const marker =
-          L.circleMarker(
-            coordinates,
-            {
-              radius: 10,
-              color: color,
-              fillColor: color,
-              fillOpacity: 0.75,
-              weight: 2
-            }
-          ).addTo(map);
-
-
-        const name =
-          zone.zone ||
-          zone.name ||
-          zone.id ||
-          "Unknown Zone";
-
-        const score =
-          zone.risk_score ??
-          zone.score ??
-          "N/A";
-
-        const level =
-          zone.risk_level ||
-          zone.risk ||
-          zone.level ||
-          "N/A";
-
+            L.circleMarker(
+                [zone.lat, zone.lon],
+                {
+                    radius: 12,
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.75,
+                    weight: 3
+                }
+            ).addTo(map);
 
         marker.bindPopup(`
-          <div style="min-width:200px">
-            <h3>📍 ${name}</h3>
+            <div style="min-width:220px;">
 
-            <p>
-              <b>Risk Level:</b>
-              ${level}
-            </p>
+                <h3 style="margin-top:0;">
+                    ${escapeHtml(zone.name)}
+                </h3>
 
-            <p>
-              <b>Risk Score:</b>
-              ${score}
-            </p>
+                <p>
+                    <strong>Risk Score:</strong>
+                    ${(risk * 100).toFixed(1)}%
+                </p>
 
-            <p>
-              <b>Latitude:</b>
-              ${coordinates[0]}
-            </p>
+                <p>
+                    <strong>Risk Level:</strong>
+                    ${getRiskLevel(risk).toUpperCase()}
+                </p>
 
-            <p>
-              <b>Longitude:</b>
-              ${coordinates[1]}
-            </p>
+                <button
+                    onclick="triggerZoneAlert(
+                        '${escapeJs(zone.id)}',
+                        '${escapeJs(zone.name)}',
+                        ${risk}
+                    )"
+                    style="
+                        background:#c62828;
+                        color:white;
+                        width:100%;
+                        padding:9px;
+                        border:0;
+                        border-radius:7px;
+                        cursor:pointer;
+                        font-weight:bold;
+                    "
+                >
+                    🚨 Trigger Alert
+                </button>
 
-            <button onclick="alertZone('${name}')">
-              🚨 Trigger Alert
-            </button>
-          </div>
+            </div>
         `);
 
-      });
-
-    } catch (error) {
-
-      console.error(error);
-
-      status.innerHTML =
-        '<span class="error">' +
-        '🔴 Backend connection failed' +
-        '</span>';
-
+        markers.push(marker);
     }
-  }
 
 
-  function alertZone(name) {
+    /*
+    ============================================================
+    ZONE CARDS
+    ============================================================
+    */
 
-    alert(
-      "🚨 Alert requested for: " +
-      name +
-      "\n\nActual SMS alert will require the alert endpoint/Twilio configuration."
-    );
+    function addZoneCard(zone) {
 
-  }
+        const container =
+            document.getElementById("zonesContainer");
+
+        const risk =
+            Number(zone.risk_score || 0);
+
+        const level =
+            getRiskLevel(risk);
+
+        const card =
+            document.createElement("div");
+
+        card.className = "zone-card";
+
+        card.innerHTML = `
+
+            <div class="zone-name">
+                ${escapeHtml(zone.name)}
+            </div>
+
+            <div class="score">
+                Risk Score:
+                <strong>
+                    ${(risk * 100).toFixed(1)}%
+                </strong>
+            </div>
+
+            <span class="risk ${level}">
+                ${level.toUpperCase()} RISK
+            </span>
+
+            <button
+                class="alert-btn"
+                onclick="triggerZoneAlert(
+                    '${escapeJs(zone.id)}',
+                    '${escapeJs(zone.name)}',
+                    ${risk}
+                )"
+            >
+                🚨 Trigger Alert
+            </button>
+        `;
+
+        container.appendChild(card);
+    }
 
 
-  loadZones();
+    /*
+    ============================================================
+    ALERT DROPDOWN
+    ============================================================
+    */
 
-</script>
+    function populateAlertDropdown() {
 
-</body>
-</html>
+        const select =
+            document.getElementById(
+                "alertZoneSelect"
+            );
+
+        select.innerHTML =
+            `<option value="">Select a zone</option>`;
+
+        zonesData.forEach(zone => {
+
+            const option =
+                document.createElement("option");
+
+            option.value = zone.id;
+
+            option.textContent =
+                zone.name;
+
+            select.appendChild(option);
+        });
+    }
+
+
+    /*
+    ============================================================
+    TRIGGER ALERT FROM MAP/CARD
+    ============================================================
+    */
+
+    async function triggerZoneAlert(
+        zoneId,
+        zoneName,
+        riskScore
+    ) {
+
+        const confirmed =
+            confirm(
+                "🚨 Send emergency alert for " +
+                zoneName +
+                "?\n\n" +
+                "Risk Score: " +
+                (riskScore * 100).toFixed(1) +
+                "%"
+            );
+
+        if (!confirmed) {
+            return;
+        }
+
+        const message =
+            `🚨 HIGH LANDSLIDE RISK in ${zoneName}. ` +
+            `Risk score: ${riskScore.toFixed(2)}. ` +
+            `Please take immediate precautionary action.`;
+
+
+        try {
+
+            if (
+                !BACKEND_URL ||
+                BACKEND_URL === "YOUR_BACKEND_URL"
+            ) {
+
+                alert(
+                    "❌ Backend URL configure nahi hai."
+                );
+
+                return;
+            }
+
+
+            const response =
+                await fetch(
+                    BACKEND_URL + "/alert/trigger",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body: JSON.stringify({
+
+                            zone_id: zoneId,
+
+                            risk_score: riskScore,
+
+                            message: message
+                        })
+                    }
+                );
+
+
+            const data =
+                await response.json();
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data.detail ||
+                    "Alert request failed."
+                );
+            }
+
+
+            alert(
+                "✅ Alert request successfully sent!\n\n" +
+                "Zone: " + zoneName
+            );
+
+
+            console.log(
+                "Alert response:",
+                data
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "Alert error:",
+                error
+            );
+
+            alert(
+                "❌ Alert failed!\n\n" +
+                error.message
+            );
+        }
+    }
+
+
+    /*
+    ============================================================
+    MANUAL ALERT
+    ============================================================
+    */
+
+    async function manualAlert() {
+
+        const select =
+            document.getElementById(
+                "alertZoneSelect"
+            );
+
+        const zoneId =
+            select.value;
+
+        if (!zoneId) {
+
+            alert(
+                "Please select a zone first."
+            );
+
+            return;
+        }
+
+
+        const zone =
+            zonesData.find(
+                z => z.id === zoneId
+            );
+
+        if (!zone) {
+
+            alert(
+                "Zone data not found."
+            );
+
+            return;
+        }
+
+
+        await triggerZoneAlert(
+            zone.id,
+            zone.name,
+            Number(zone.risk_score || 0)
+        );
+    }
+
+
+    /*
+    ============================================================
+    PREDICTION API
+    ============================================================
+    */
+
+    document
+        .getElementById("predictionForm")
+        .addEventListener(
+            "submit",
+            async function(event) {
+
+                event.preventDefault();
+
+                const result =
+                    document.getElementById(
+                        "predictionResult"
+                    );
+
+                result.style.display = "block";
+
+                result.innerHTML =
+                    "🔄 Calculating risk...";
+
+
+                const formData =
+                    new FormData(event.target);
+
+                const payload = {
+
+                    rainfall_mm_24h:
+                        Number(
+                            formData.get(
+                                "rainfall_mm_24h"
+                            )
+                        ),
+
+                    rainfall_mm_7d:
+                        Number(
+                            formData.get(
+                                "rainfall_mm_7d"
+                            )
+                        ),
+
+                    slope_deg:
+                        Number(
+                            formData.get(
+                                "slope_deg"
+                            )
+                        ),
+
+                    elevation_m:
+                        Number(
+                            formData.get(
+                                "elevation_m"
+                            )
+                        ),
+
+                    soil_moisture:
+                        Number(
+                            formData.get(
+                                "soil_moisture"
+                            )
+                        ),
+
+                    historical_landslide_density:
+                        Number(
+                            formData.get(
+                                "historical_landslide_density"
+                            )
+                        ),
+
+                    distance_to_road_km:
+                        Number(
+                            formData.get(
+                                "distance_to_road_km"
+                            )
+                        ),
+
+                    ndvi_vegetation_index:
+                        Number(
+                            formData.get(
+                                "ndvi_vegetation_index"
+                            )
+                        )
+                };
+
+
+                try {
+
+                    const response =
+                        await fetch(
+                            BACKEND_URL +
+                            "/predict",
+                            {
+                                method: "POST",
+
+                                headers: {
+                                    "Content-Type":
+                                        "application/json"
+                                },
+
+                                body
