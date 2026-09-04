@@ -38,7 +38,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__)) MODEL_PATH = os.path.join(BASE_DIR, "models", "landslide_risk_model.joblib")
+MODEL_PATH = "../models/landslide_risk_model.joblib"
 bundle = joblib.load(MODEL_PATH)
 model, FEATURES = bundle["model"], bundle["features"]
 
