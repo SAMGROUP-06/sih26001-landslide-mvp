@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>SIH26001 — Landslide Risk Monitoring</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      color: #222;
+    }
+
+    header {
+      background: #1f2937;
+      color: white;
+      padding: 18px 24px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    header p {
+      margin: 5px 0 0;
+      opacity: 0.8;
+    }
+
+    .container {
+      padding: 20px;
+      max-width: 1400px;
+      margin: auto;
+    }
+
+    .status {
+      background: white;
+      padding: 14px;
+      border-radius: 10px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    #map {
+      height: 600px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+    }
+
+    .legend {
+      background: white;
+      padding: 12px;
+      margin-top: 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .dot {
+      display: inline-block;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+
+    .high {
+      background: red;
+    }
+
+    .medium {
+      background: orange;
+    }
+
+    .low {
+      background: green;
+    }
+
+    button {
+      padding: 9px 14px;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      background: #2563eb;
+      color: white;
+      margin-top: 8px;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    .error {
+      color: #b91c1c;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <h1>🌍 SIH26001 — Landslide Risk Monitoring</h1>
+  <p>Real-time Landslide Risk Zone Dashboard</p>
+</header>
+
+<div class="container">
+
+  <div class="status">
+    <strong>Backend Status:</strong>
+    <span id="status">Connecting...</span>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="legend">
+    <strong>Risk Level:</strong><br><br>
+
+    <span class="dot high"></span> High Risk &nbsp;&nbsp;
+    <span class="dot medium"></span> Medium Risk &nbsp;&nbsp;
+    <span class="dot low"></span> Low Risk
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+
+  // YOUR LIVE RENDER BACKEND
+  const API_URL =
+    "https://sih26001-landslide-mvp.onrender.com/zones";
+
+  // Default map position
+  const map = L.map("map").setView([30.0668, 79.0193], 7);
+
+  L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+      attribution: "&copy; OpenStreetMap contributors"
+    }
+  ).addTo(map);
+
+
+  function getRiskColor(zone) {
+
+    const level =
+      String(
+        zone.risk_level ||
+        zone.risk ||
+        zone.level ||
+        ""
+      ).toLowerCase();
+
+    const score =
+      Number(
+        zone.risk_score ??
+        zone.score ??
+        0
+      );
+
+    if (
+      level.includes("high") ||
+      score >= 0.7
+    ) {
+      return "red";
+    }
+
+    if (
+      level.includes("medium") ||
+      score >= 0.4
+    ) {
+      return "orange";
+    }
+
+    return "green";
+  }
+
+
+  function getCoordinates(zone) {
+
+    const lat =
+      zone.lat ??
+      zone.latitude;
+
+    const lon =
+      zone.lon ??
+      zone.lng ??
+      zone.longitude;
+
+    if (
+      typeof lat === "number" &&
+      typeof lon === "number"
+    ) {
+      return [lat, lon];
+    }
+
+    return null;
+  }
+
+
+  async function loadZones() {
+
+    const status =
+      document.getElementById("status");
+
+    try {
+
+      status.textContent =
+        "Loading risk zones...";
+
+      const response =
+        await fetch(API_URL);
+
+      if (!response.ok) {
+        throw new Error(
+          "HTTP " + response.status
+        );
+      }
+
+      const data =
+        await response.json();
+
+      console.log("Zones received:", data);
+
+      status.textContent =
+        "🟢 Connected — " +
+        (Array.isArray(data)
+          ? data.length
+          : (data.zones?.length || 0)) +
+        " zones loaded";
+
+      const zones =
+        Array.isArray(data)
+          ? data
+          : (data.zones || []);
+
+      zones.forEach(zone => {
+
+        const coordinates =
+          getCoordinates(zone);
+
+        if (!coordinates) {
+          console.warn(
+            "No coordinates found:",
+            zone
+          );
+          return;
+        }
+
+        const color =
+          getRiskColor(zone);
+
+        const marker =
+          L.circleMarker(
+            coordinates,
+            {
+              radius: 10,
+              color: color,
+              fillColor: color,
+              fillOpacity: 0.75,
+              weight: 2
+            }
+          ).addTo(map);
+
+
+        const name =
+          zone.zone ||
+          zone.name ||
+          zone.id ||
+          "Unknown Zone";
+
+        const score =
+          zone.risk_score ??
+          zone.score ??
+          "N/A";
+
+        const level =
+          zone.risk_level ||
+          zone.risk ||
+          zone.level ||
+          "N/A";
+
+
+        marker.bindPopup(`
+          <div style="min-width:200px">
+            <h3>📍 ${name}</h3>
+
+            <p>
+              <b>Risk Level:</b>
+              ${level}
+            </p>
+
+            <p>
+              <b>Risk Score:</b>
+              ${score}
+            </p>
+
+            <p>
+              <b>Latitude:</b>
+              ${coordinates[0]}
+            </p>
+
+            <p>
+              <b>Longitude:</b>
+              ${coordinates[1]}
+            </p>
+
+            <button onclick="alertZone('${name}')">
+              🚨 Trigger Alert
+            </button>
+          </div>
+        `);
+
+      });
+
+    } catch (error) {
+
+      console.error(error);
+
+      status.innerHTML =
+        '<span class="error">' +
+        '🔴 Backend connection failed' +
+        '</span>';
+
+    }
+  }
+
+
+  function alertZone(name) {
+
+    alert(
+      "🚨 Alert requested for: " +
+      name +
+      "\n\nActual SMS alert will require the alert endpoint/Twilio configuration."
+    );
+
+  }
+
+
+  loadZones();
+
+</script>
+
+</body>
+</html>
