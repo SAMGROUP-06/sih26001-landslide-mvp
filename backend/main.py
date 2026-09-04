@@ -264,7 +264,7 @@ def _log_json(path: str, entry: dict):
         json.dump(data, f, indent=2)
 
 
-def _send_alert(zone_name: str, risk_score: float, message: str):
+def _send_alert(zone_name: str, risk_score: float, message: str):     entry = {         "timestamp": datetime.utcnow().isoformat(),         "zone": zone_name,         "risk_score": risk_score,         "message": message,     }      sid = os.getenv("TWILIO_SID")     token = os.getenv("TWILIO_TOKEN")     from_no = os.getenv("TWILIO_FROM")     to_no = os.getenv("ALERT_TO")      if not all([sid, token, from_no, to_no]):         entry["mode"] = "mock_logged_only"         print(f"[ALERT-MOCK] {message}")         _log_json(ALERT_LOG, entry)         return entry      try:         from twilio.rest import Client          client = Client(sid, token)          sms = client.messages.create(             body="sms_internal_alerts",             from_=from_no,             to=to_no         )          entry["mode"] = "twilio_sms_sent"         entry["sid"] = sms.sid          print(f"[ALERT-SMS-SENT] {message}")         print(f"Twilio Message SID: {sms.sid}")      except Exception as e:         entry["mode"] = "twilio_error"         entry["error"] = str(e)          print(f"[TWILIO ERROR] {e}")         print(f"[ALERT-MOCK] {message}")      _log_json(ALERT_LOG, entry)      return entry
     entry = {
         "timestamp": datetime.utcnow().isoformat(),
         "zone": zone_name,
