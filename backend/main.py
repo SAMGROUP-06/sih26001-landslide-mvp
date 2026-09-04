@@ -1,43 +1,26 @@
-"""
-SIH26001 - Landslide Risk Monitoring backend.
-
-Run locally:
-    pip install fastapi uvicorn joblib pandas scikit-learn python-multipart twilio
-    uvicorn main:app --reload --port 8000
-
-Endpoints:
-    GET  /                       -> health check
-    GET  /zones                  -> current risk score for all demo zones
-    POST /predict                -> risk prediction for custom features
-    POST /citizen-report        -> submit a geo-tagged report
-    GET  /citizen-reports       -> list submitted reports
-    POST /alert/trigger         -> manually trigger an alert
-
-Alerts:
-    Set TWILIO_SID / TWILIO_TOKEN / TWILIO_FROM / ALERT_TO
-    to send real SMS via Twilio.
-    Without them, alerts are logged in mock mode.
-"""
-
 import os
 import json
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
-import joblib
-import pandas as pd
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, Form, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 
-app = FastAPI(title="SIH26001 - Landslide Risk Monitoring API")
+# ============================================================
+# APP CONFIGURATION
+# ============================================================
+
+app = FastAPI(
+    title="SIH26001 - Landslide Risk Monitoring API",
+    description="Landslide Risk Monitoring MVP Backend",
+    version="1.0.0",
+)
 
 
-# -------------------------------------------------------------------
-# CORS
-# -------------------------------------------------------------------
+# Allow Netlify frontend and local development
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -47,99 +30,25 @@ app.add_middleware(
 )
 
 
-# -------------------------------------------------------------------
-# FILE PATHS
-# Works whether the project is run from the backend folder or repo root.
-# -------------------------------------------------------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# ============================================================
+# FILE CONFIGURATION
+# ============================================================
 
-MODEL_CANDIDATES = [
-    os.path.join(BASE_DIR, "models", "landslide_risk_model.joblib"),
-    os.path.join(BASE_DIR, "..", "models", "landslide_risk_model.joblib"),
-]
+REPORTS_LOG = "citizen_reports.json"
 
-MODEL_PATH = next(
-    (os.path.abspath(path) for path in MODEL_CANDIDATES if os.path.exists(path)),
-    None,
-)
-
-ALERT_LOG = os.path.join(BASE_DIR, "alert_log.json")
-REPORTS_LOG = os.path.join(BASE_DIR, "citizen_reports.json")
-
-RISK_ALERT_THRESHOLD = 0.6
+RISK_ALERT_THRESHOLD = 0.70
 
 
-# -------------------------------------------------------------------
-# Load ML model safely
-# -------------------------------------------------------------------
-model = None
-FEATURES = []
+# ============================================================
+# DATA MODELS
+# ============================================================
 
-if MODEL_PATH:
-    try:
-        bundle = joblib.load(MODEL_PATH)
-
-        # Expected format:
-        # {"model": trained_model, "features": [...]}
-        if isinstance(bundle, dict):
-            model = bundle.get("model")
-            FEATURES = bundle.get("features", [])
-        else:
-            # Extra fallback if a raw sklearn model was saved.
-            model = bundle
-
-        if not FEATURES:
-            # Standard feature order used by this project.
-            FEATURES = [
-                "rainfall_mm_24h",
-                "rainfall_mm_7d",
-                "slope_deg",
-                "elevation_m",
-                "soil_moisture",
-                "historical_landslide_density",
-                "distance_to_road_km",
-                "ndvi_vegetation_index",
-            ]
-
-        print(f"[MODEL] Loaded successfully: {MODEL_PATH}")
-        print(f"[MODEL] Features: {FEATURES}")
-
-    except Exception as e:
-        print(f"[MODEL ERROR] Could not load model: {type(e).__name__}: {e}")
-else:
-    print("[MODEL ERROR] Model file not found.")
-    print("[MODEL] Checked:")
-    for path in MODEL_CANDIDATES:
-        print(f"  - {os.path.abspath(path)}")
-
-
-# -------------------------------------------------------------------
-# Demo zones
-# -------------------------------------------------------------------
-DEMO_ZONES = [
-    {"id": "z1", "name": "East Khasi Hills", "lat": 25.57, "lon": 91.88},
-    {"id": "z2", "name": "West Garo Hills", "lat": 25.51, "lon": 90.21},
-    {"id": "z3", "name": "Kohima", "lat": 25.67, "lon": 94.11},
-    {"id": "z4", "name": "Dima Hasao", "lat": 25.03, "lon": 93.02},
-    {"id": "z5", "name": "Upper Subansiri", "lat": 27.98, "lon": 93.98},
-    {"id": "z6", "name": "West Kameng", "lat": 27.22, "lon": 92.35},
-    {"id": "z7", "name": "Aizawl", "lat": 23.73, "lon": 92.72},
-    {"id": "z8", "name": "Churachandpur", "lat": 24.33, "lon": 93.68},
-]
-
-
-# -------------------------------------------------------------------
-# Request models
-# -------------------------------------------------------------------
 class PredictInput(BaseModel):
-    rainfall_mm_24h: float
-    rainfall_mm_7d: float
-    slope_deg: float
-    elevation_m: float
-    soil_moisture: float
-    historical_landslide_density: float
-    distance_to_road_km: float
-    ndvi_vegetation_index: float
+    rainfall: float = 50.0
+    soil_moisture: float = 50.0
+    slope: float = 30.0
+    temperature: float = 25.0
+    humidity: float = 70.0
 
 
 class AlertRequest(BaseModel):
@@ -148,197 +57,222 @@ class AlertRequest(BaseModel):
     message: Optional[str] = None
 
 
-# -------------------------------------------------------------------
-# Helpers
-# -------------------------------------------------------------------
-def _random_live_features():
+# ============================================================
+# ZONE DATA
+# ============================================================
+
+ZONES = [
+    {
+        "id": "zone_01",
+        "name": "Himalayan Zone A",
+        "lat": 30.0668,
+        "lon": 79.0193,
+    },
+    {
+        "id": "zone_02",
+        "name": "Himalayan Zone B",
+        "lat": 30.3165,
+        "lon": 78.0322,
+    },
+    {
+        "id": "zone_03",
+        "name": "Mountain Zone C",
+        "lat": 31.1048,
+        "lon": 77.1734,
+    },
+    {
+        "id": "zone_04",
+        "name": "Hill Zone D",
+        "lat": 32.2432,
+        "lon": 77.1892,
+    },
+]
+
+
+# ============================================================
+# UTILITY FUNCTIONS
+# ============================================================
+
+def _risk_level(risk: float) -> str:
     """
-    Demo replacement for live IMD/SRTM/SMAP data.
-    Replace with real API/grid data when available.
+    Convert risk score into a human-readable risk level.
     """
+
+    if risk >= 0.70:
+        return "HIGH"
+
+    if risk >= 0.40:
+        return "MEDIUM"
+
+    return "LOW"
+
+
+def _random_live_features() -> dict:
+    """
+    Generate demo sensor/weather values.
+    """
+
     return {
-        "rainfall_mm_24h": round(random.uniform(0, 180), 1),
-        "rainfall_mm_7d": round(random.uniform(0, 600), 1),
-        "slope_deg": round(random.uniform(5, 55), 1),
-        "elevation_m": round(random.uniform(200, 2500), 0),
-        "soil_moisture": round(random.uniform(0.1, 0.95), 2),
-        "historical_landslide_density": round(random.uniform(0, 3), 2),
-        "distance_to_road_km": round(random.uniform(0, 10), 2),
-        "ndvi_vegetation_index": round(random.uniform(0.2, 0.9), 2),
+        "rainfall": round(random.uniform(10, 180), 2),
+        "soil_moisture": round(random.uniform(20, 95), 2),
+        "slope": round(random.uniform(5, 60), 2),
+        "temperature": round(random.uniform(5, 35), 2),
+        "humidity": round(random.uniform(30, 100), 2),
     }
 
 
 def _fallback_risk(features: dict) -> float:
     """
-    Demo fallback so the dashboard does not crash if the ML model
-    is temporarily unavailable or has an incompatible feature format.
+    Calculate a simple demo risk score.
+
+    This is NOT a real ML model.
+    It is only for MVP/demo purposes.
     """
-    score = (
-        (features.get("rainfall_mm_24h", 0) / 180.0) * 0.30
-        + (features.get("rainfall_mm_7d", 0) / 600.0) * 0.20
-        + (features.get("slope_deg", 0) / 55.0) * 0.20
-        + features.get("soil_moisture", 0) * 0.15
-        + (features.get("historical_landslide_density", 0) / 3.0) * 0.15
+
+    rainfall = float(features.get("rainfall", 50))
+    soil_moisture = float(features.get("soil_moisture", 50))
+    slope = float(features.get("slope", 30))
+    humidity = float(features.get("humidity", 70))
+
+    rainfall_score = min(rainfall / 150.0, 1.0)
+    moisture_score = min(soil_moisture / 100.0, 1.0)
+    slope_score = min(slope / 60.0, 1.0)
+    humidity_score = min(humidity / 100.0, 1.0)
+
+    risk = (
+        rainfall_score * 0.40
+        + moisture_score * 0.25
+        + slope_score * 0.25
+        + humidity_score * 0.10
     )
 
-    return round(max(0.0, min(0.99, score)), 3)
+    return round(max(0.0, min(risk, 1.0)), 3)
 
 
 def _predict(features: dict) -> float:
     """
-    Run the trained model.
-    If the model cannot predict, use a safe demo fallback instead of
-    returning HTTP 500 from /zones.
+    Prediction function.
+
+    If you later add a trained ML model, this function
+    can be replaced with actual model prediction.
     """
-    if model is None:
-        print("[PREDICTION] Model unavailable -> using demo fallback.")
-        return _fallback_risk(features)
+
+    return _fallback_risk(features)
+
+
+def _log_json(filename: str, entry: dict):
+    """
+    Save a citizen report to a JSON file.
+    """
 
     try:
-        # Make sure every expected model feature exists.
-        missing = [f for f in FEATURES if f not in features]
+        existing_data = []
 
-        if missing:
-            raise ValueError(f"Missing model features: {missing}")
+        if os.path.exists(filename):
+            try:
+                with open(filename, "r", encoding="utf-8") as f:
+                    data = json.load(f)
 
-        # Preserve the exact feature order expected by the trained model.
-        row = pd.DataFrame(
-            [[features[f] for f in FEATURES]],
-            columns=FEATURES,
-        )
+                if isinstance(data, list):
+                    existing_data = data
 
-        # sklearn classifiers normally expose predict_proba().
-        if hasattr(model, "predict_proba"):
-            probabilities = model.predict_proba(row)[0]
+            except (json.JSONDecodeError, OSError):
+                existing_data = []
 
-            # Find class 1 when classes_ is available.
-            if hasattr(model, "classes_"):
-                classes = list(model.classes_)
-                if 1 in classes:
-                    class_index = classes.index(1)
-                else:
-                    class_index = len(probabilities) - 1
-            else:
-                class_index = min(1, len(probabilities) - 1)
+        existing_data.append(entry)
 
-            return float(probabilities[class_index])
-
-        # Fallback for models that only expose predict().
-        prediction = model.predict(row)[0]
-        return float(prediction)
-
-    except Exception as e:
-        print(f"[PREDICTION ERROR] {type(e).__name__}: {e}")
-        print(f"[PREDICTION ERROR] FEATURES = {FEATURES}")
-        print(f"[PREDICTION ERROR] INPUT = {features}")
-        print("[PREDICTION] Using demo fallback score.")
-        return _fallback_risk(features)
-
-
-def _risk_level(risk: float) -> str:
-    if risk >= RISK_ALERT_THRESHOLD:
-        return "high"
-    if risk >= 0.35:
-        return "moderate"
-    return "low"
-
-
-def _log_json(path: str, entry: dict):
-    data = []
-
-    try:
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-
-            if not isinstance(data, list):
-                data = []
-
-    except Exception as e:
-        print(f"[JSON LOG WARNING] Could not read {path}: {e}")
-        data = []
-
-    data.append(entry)
-
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-
-
-def _send_alert(zone_name: str, risk_score: float, message: str):     entry = {         "timestamp": datetime.utcnow().isoformat(),         "zone": zone_name,         "risk_score": risk_score,         "message": message,     }      sid = os.getenv("TWILIO_SID")     token = os.getenv("TWILIO_TOKEN")     from_no = os.getenv("TWILIO_FROM")     to_no = os.getenv("ALERT_TO")      if not all([sid, token, from_no, to_no]):         entry["mode"] = "mock_logged_only"         print(f"[ALERT-MOCK] {message}")         _log_json(ALERT_LOG, entry)         return entry      try:         from twilio.rest import Client          client = Client(sid, token)          sms = client.messages.create(             body="sms_internal_alerts",             from_=from_no,             to=to_no         )          entry["mode"] = "twilio_sms_sent"         entry["sid"] = sms.sid          print(f"[ALERT-SMS-SENT] {message}")         print(f"Twilio Message SID: {sms.sid}")      except Exception as e:         entry["mode"] = "twilio_error"         entry["error"] = str(e)          print(f"[TWILIO ERROR] {e}")         print(f"[ALERT-MOCK] {message}")      _log_json(ALERT_LOG, entry)      return entry
-    entry = {
-        "timestamp": datetime.utcnow().isoformat(),
-        "zone": zone_name,
-        "risk_score": float(risk_score),
-        "message": message,
-    }
-
-    sid = os.getenv("TWILIO_SID")
-    token = os.getenv("TWILIO_TOKEN")
-    from_no = os.getenv("TWILIO_FROM")
-    to_no = os.getenv("ALERT_TO")
-
-    if sid and token and from_no and to_no:
-        try:
-            from twilio.rest import Client
-
-            client = Client(sid, token)
-
-            client.messages.create(
-                body=message,
-                from_=from_no,
-                to=to_no,
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(
+                existing_data,
+                f,
+                indent=2,
+                ensure_ascii=False,
             )
 
-            entry["mode"] = "twilio_sms_sent"
-
-        except Exception as e:
-            entry["mode"] = "twilio_error_mock_logged"
-            entry["error"] = str(e)
-            print(f"[TWILIO ERROR] {e}")
-            print(f"[ALERT-MOCK] {message}")
-
-    else:
-        entry["mode"] = "mock_logged_only"
-        print(f"[ALERT-MOCK] {message}")
-
-    _log_json(ALERT_LOG, entry)
-    return entry
+    except Exception as e:
+        print(f"[LOG ERROR] {type(e).__name__}: {e}")
 
 
-# -------------------------------------------------------------------
-# API endpoints
-# -------------------------------------------------------------------
-@app.get("/")
-def health():
-    return {
-        "status": "ok",
-        "service": "SIH26001 landslide risk API",
-        "model_loaded": model is not None,
-        "model_path": MODEL_PATH,
-        "features": FEATURES,
+def _send_alert(
+    zone_id: str,
+    risk_score: float,
+    message: str,
+) -> dict:
+    """
+    Demo alert function.
+
+    Currently prints the alert to the Render logs.
+    Later this can be connected to SMS/email/WhatsApp.
+    """
+
+    alert = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "zone_id": zone_id,
+        "risk_score": round(risk_score, 3),
+        "risk_level": _risk_level(risk_score),
+        "message": message,
+        "status": "alert_triggered",
     }
 
+    print("=" * 60)
+    print("LANDSLIDE ALERT")
+    print("=" * 60)
+    print(f"Zone: {zone_id}")
+    print(f"Risk Score: {risk_score:.3f}")
+    print(f"Risk Level: {_risk_level(risk_score)}")
+    print(f"Message: {message}")
+    print("=" * 60)
+
+    return alert
+
+
+# ============================================================
+# ROOT / HEALTH CHECK
+# ============================================================
+
+@app.get("/")
+def root():
+    return {
+        "status": "online",
+        "project": "SIH26001 - Landslide Risk Monitoring MVP",
+        "message": "Landslide Risk Monitoring API is running.",
+    }
+
+
+@app.get("/health")
+def health():
+    return {
+        "status": "healthy",
+        "service": "landslide-risk-api",
+    }
+
+
+# ============================================================
+# ZONE RISK DASHBOARD
+# ============================================================
 
 @app.get("/zones")
 def get_zones():
-    """
-    Generate demo live-like features for every zone, calculate risk,
-    and auto-trigger alerts when risk >= 0.6.
-    """
+
     results = []
 
-    for z in DEMO_ZONES:
+    for z in ZONES:
+
         try:
-            feats = _random_live_features()
-            risk = _predict(feats)
+            # Generate demo live sensor data
+            features = _random_live_features()
+
+            # Calculate risk
+            risk = _predict(features)
 
             entry = {
                 **z,
-                "risk_score": round(risk, 3),
-                "features": feats,
+                "risk_score": risk,
+                "features": features,
                 "risk_level": _risk_level(risk),
             }
 
+            # Trigger alert if risk is high
             if risk >= RISK_ALERT_THRESHOLD:
                 _send_alert(
                     z["name"],
@@ -352,36 +286,55 @@ def get_zones():
             results.append(entry)
 
         except Exception as e:
+
             # One bad zone must not break the entire dashboard.
-            print(f"[ZONE ERROR] {z['name']}: {type(e).__name__}: {e}")
+            print(
+                f"[ZONE ERROR] "
+                f"{z['name']}: "
+                f"{type(e).__name__}: {e}"
+            )
 
             fallback_features = _random_live_features()
             fallback_risk = _fallback_risk(fallback_features)
 
-            results.append({
-                **z,
-                "risk_score": fallback_risk,
-                "features": fallback_features,
-                "risk_level": _risk_level(fallback_risk),
-                "warning": "Demo fallback score used.",
-            })
+            results.append(
+                {
+                    **z,
+                    "risk_score": fallback_risk,
+                    "features": fallback_features,
+                    "risk_level": _risk_level(fallback_risk),
+                    "warning": "Demo fallback score used.",
+                }
+            )
 
     return {
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "zones": results,
     }
 
 
+# ============================================================
+# SINGLE PREDICTION
+# ============================================================
+
 @app.post("/predict")
 def predict(inp: PredictInput):
-    features = inp.dict()
+
+    # Pydantic v2 compatible
+    features = inp.model_dump()
+
     risk = _predict(features)
 
     return {
         "risk_score": round(risk, 3),
         "risk_level": _risk_level(risk),
+        "features": features,
     }
 
+
+# ============================================================
+# CITIZEN REPORT
+# ============================================================
 
 @app.post("/citizen-report")
 async def citizen_report(
@@ -390,8 +343,9 @@ async def citizen_report(
     description: str = Form(...),
     photo: Optional[UploadFile] = File(None),
 ):
+
     entry = {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "lat": lat,
         "lon": lon,
         "description": description,
@@ -402,31 +356,63 @@ async def citizen_report(
 
     return {
         "status": "received",
+        "message": "Citizen report received successfully.",
         "report": entry,
     }
 
 
+# ============================================================
+# GET CITIZEN REPORTS
+# ============================================================
+
 @app.get("/citizen-reports")
 def list_reports():
+
     if not os.path.exists(REPORTS_LOG):
-        return {"reports": []}
+        return {
+            "reports": []
+        }
 
     try:
-        with open(REPORTS_LOG, "r", encoding="utf-8") as f:
+
+        with open(
+            REPORTS_LOG,
+            "r",
+            encoding="utf-8",
+        ) as f:
+
             reports = json.load(f)
 
-        return {"reports": reports}
+        if not isinstance(reports, list):
+            reports = []
+
+        return {
+            "reports": reports
+        }
 
     except Exception as e:
-        print(f"[REPORTS ERROR] {e}")
-        return {"reports": []}
 
+        print(
+            f"[REPORTS ERROR] "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return {
+            "reports": []
+        }
+
+
+# ============================================================
+# MANUAL ALERT TRIGGER
+# ============================================================
 
 @app.post("/alert/trigger")
 def trigger_alert(req: AlertRequest):
+
     msg = req.message or (
         f"Landslide risk alert for zone "
-        f"{req.zone_id} (score {req.risk_score:.2f})"
+        f"{req.zone_id} "
+        f"(score {req.risk_score:.2f})"
     )
 
     return _send_alert(
@@ -434,3 +420,21 @@ def trigger_alert(req: AlertRequest):
         req.risk_score,
         msg,
     )
+
+
+# ============================================================
+# DEMO STATUS
+# ============================================================
+
+@app.get("/demo")
+def demo():
+
+    features = _random_live_features()
+    risk = _predict(features)
+
+    return {
+        "message": "Demo prediction generated.",
+        "features": features,
+        "risk_score": risk,
+        "risk_level": _risk_level(risk),
+    }
