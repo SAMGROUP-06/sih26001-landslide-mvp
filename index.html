@@ -6,7 +6,6 @@
 
     <title>SIH26001 - Landslide Risk Monitoring</title>
 
-    <!-- Leaflet Map -->
     <link
         rel="stylesheet"
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -155,10 +154,6 @@
             margin-bottom: 15px;
         }
 
-        .refresh-btn:hover {
-            background: #1d4ed8;
-        }
-
         .form-section {
             margin-top: 20px;
         }
@@ -182,10 +177,6 @@
             background: #166534;
             color: white;
             width: 100%;
-        }
-
-        .submit-btn:hover {
-            background: #14532d;
         }
 
         .message {
@@ -238,29 +229,40 @@
     </div>
 </header>
 
+
 <div class="container">
 
     <div class="dashboard">
 
         <!-- MAP -->
         <div class="card">
+
             <h2>🗺️ Landslide Risk Map</h2>
 
-            <button class="refresh-btn" onclick="loadZones()">
+            <button
+                class="refresh-btn"
+                onclick="loadZones()"
+            >
                 🔄 Refresh Risk Data
             </button>
 
             <div id="map"></div>
+
         </div>
 
 
-        <!-- ZONES -->
+        <!-- RISK ZONES -->
         <div class="card">
+
             <h2>⚠️ Risk Zones</h2>
 
-            <div id="zoneList" class="zone-list">
-                Loading zones...
+            <div
+                id="zoneList"
+                class="zone-list"
+            >
+                🔄 Loading zones...
             </div>
+
         </div>
 
     </div>
@@ -278,6 +280,7 @@
         <form id="reportForm">
 
             <label>Latitude</label>
+
             <input
                 type="number"
                 step="any"
@@ -286,7 +289,9 @@
                 required
             >
 
+
             <label>Longitude</label>
+
             <input
                 type="number"
                 step="any"
@@ -295,27 +300,39 @@
                 required
             >
 
+
             <label>Description</label>
+
             <textarea
                 id="description"
-                placeholder="Describe the crack, slope movement, water seepage etc."
+                placeholder="Describe crack, slope movement, water seepage etc."
                 required
             ></textarea>
 
+
             <label>Photo (optional)</label>
+
             <input
                 type="file"
                 id="photo"
                 accept="image/*"
             >
 
-            <button type="submit" class="submit-btn">
+
+            <button
+                type="submit"
+                class="submit-btn"
+            >
                 📤 Submit Report
             </button>
 
         </form>
 
-        <div id="reportMessage" class="message"></div>
+
+        <div
+            id="reportMessage"
+            class="message"
+        ></div>
 
     </div>
 
@@ -327,31 +344,35 @@
 </footer>
 
 
-<!-- Leaflet -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 
 <script>
 
-    /* =========================================================
-       IMPORTANT:
-       YAHAN APNE DEPLOYED BACKEND KA URL DALO
-       ========================================================= */
+    /* =====================================================
+       YOUR DEPLOYED BACKEND
+       ===================================================== */
 
-    const BACKEND = "https://sih26001-landslide-mvp.onrender.com";
+    const BACKEND =
+        "https://sih26001-landslide-mvp.onrender.com";
 
 
-    /* =========================================================
-       MAP INITIALIZATION
-       ========================================================= */
+    /* =====================================================
+       MAP
+       ===================================================== */
 
-    const map = L.map("map").setView([25.5, 91.5], 6);
+    const map = L.map("map").setView(
+        [25.5, 91.5],
+        6
+    );
+
 
     L.tileLayer(
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
             maxZoom: 18,
-            attribution: "&copy; OpenStreetMap contributors"
+            attribution:
+                "&copy; OpenStreetMap contributors"
         }
     ).addTo(map);
 
@@ -359,9 +380,9 @@
     let markers = [];
 
 
-    /* =========================================================
-       RISK COLOR
-       ========================================================= */
+    /* =====================================================
+       RISK CLASS
+       ===================================================== */
 
     function getRiskClass(level) {
 
@@ -377,6 +398,10 @@
     }
 
 
+    /* =====================================================
+       MARKER COLOR
+       ===================================================== */
+
     function getMarkerColor(level) {
 
         if (level === "high") {
@@ -391,37 +416,59 @@
     }
 
 
-    /* =========================================================
-       LOAD ZONES FROM BACKEND
-       ========================================================= */
+    /* =====================================================
+       LOAD ZONES
+       ===================================================== */
 
     async function loadZones() {
 
-        const zoneList = document.getElementById("zoneList");
+        const zoneList =
+            document.getElementById("zoneList");
 
-        zoneList.innerHTML = "🔄 Loading risk data...";
+        zoneList.innerHTML =
+            "🔄 Loading risk data...";
+
 
         try {
 
-            const response = await fetch(`${BACKEND}/zones`);
+            const response =
+                await fetch(
+                    `${BACKEND}/zones`
+                );
+
 
             if (!response.ok) {
-                throw new Error("Backend returned an error");
+
+                throw new Error(
+                    "Backend returned an error"
+                );
+
             }
 
-            const data = await response.json();
+
+            const data =
+                await response.json();
+
 
             /* Remove old markers */
-            markers.forEach(marker => map.removeLayer(marker));
+
+            markers.forEach(
+                marker => map.removeLayer(marker)
+            );
+
             markers = [];
 
 
             zoneList.innerHTML = "";
 
 
-            if (!data.zones || data.zones.length === 0) {
+            if (
+                !data.zones ||
+                data.zones.length === 0
+            ) {
 
-                zoneList.innerHTML = "No zones available.";
+                zoneList.innerHTML =
+                    "No zones available.";
 
                 return;
             }
@@ -429,7 +476,9 @@
 
             data.zones.forEach(zone => {
 
-                const riskScore = Number(zone.risk_score || 0);
+                const riskScore =
+                    Number(zone.risk_score || 0);
+
 
                 const riskLevel =
                     zone.risk_level ||
@@ -442,67 +491,105 @@
                     );
 
 
-                /* ===============================
+                /* ==========================
                    MAP MARKER
-                   =============================== */
+                   ========================== */
 
-                const marker = L.circleMarker(
-                    [zone.lat, zone.lon],
-                    {
-                        radius: 10,
-                        color: getMarkerColor(riskLevel),
-                        fillColor: getMarkerColor(riskLevel),
-                        fillOpacity: 0.8
-                    }
-                ).addTo(map);
+                const marker =
+                    L.circleMarker(
+                        [zone.lat, zone.lon],
+                        {
+                            radius: 10,
+                            color:
+                                getMarkerColor(
+                                    riskLevel
+                                ),
+                            fillColor:
+                                getMarkerColor(
+                                    riskLevel
+                                ),
+                            fillOpacity: 0.8
+                        }
+                    ).addTo(map);
 
 
                 marker.bindPopup(`
+
                     <b>${zone.name}</b><br>
-                    Risk Level: ${riskLevel.toUpperCase()}<br>
-                    Risk Score: ${riskScore.toFixed(2)}<br>
-                    Latitude: ${zone.lat}<br>
-                    Longitude: ${zone.lon}
+
+                    Risk Level:
+                    ${riskLevel.toUpperCase()}<br>
+
+                    Risk Score:
+                    ${riskScore.toFixed(2)}<br>
+
+                    Latitude:
+                    ${zone.lat}<br>
+
+                    Longitude:
+                    ${zone.lon}
+
                 `);
 
 
                 markers.push(marker);
 
 
-                /* ===============================
+                /* ==========================
                    ZONE CARD
-                   =============================== */
+                   ========================== */
 
-                const div = document.createElement("div");
+                const div =
+                    document.createElement("div");
+
 
                 div.className = "zone";
 
 
                 div.innerHTML = `
-                    <h3>${zone.name}</h3>
 
-                    <span class="risk ${getRiskClass(riskLevel)}">
+                    <h3>
+                        ${zone.name}
+                    </h3>
+
+
+                    <span
+                        class="risk ${getRiskClass(
+                            riskLevel
+                        )}"
+                    >
                         ${riskLevel.toUpperCase()} RISK
                     </span>
 
+
                     <div class="info">
-                        <b>Risk Score:</b> ${riskScore.toFixed(2)}
+
+                        <b>Risk Score:</b>
+                        ${riskScore.toFixed(2)}
+
                         <br>
 
                         <b>Location:</b>
-                        ${zone.lat}, ${zone.lon}
+                        ${zone.lat},
+                        ${zone.lon}
+
                     </div>
+
 
                     <button
                         class="alert-btn"
                         onclick="alertZone(
-                            '${zone.name.replace(/'/g, "\\'")}',
+                            '${zone.name.replace(
+                                /'/g,
+                                "\\'"
+                            )}',
                             '${zone.id}',
                             ${riskScore}
                         )"
                     >
                         🚨 Trigger Alert
                     </button>
+
                 `;
 
 
@@ -514,109 +601,165 @@
 
         catch (error) {
 
-            console.error("Zone loading error:", error);
+            console.error(
+                "Zone loading error:",
+                error
+            );
+
 
             zoneList.innerHTML = `
-                <div class="message error" style="display:block;">
-                    ❌ Backend connection failed.<br><br>
-                    Backend URL check karo.
+
+                <div
+                    class="message error"
+                    style="display:block;"
+                >
+
+                    ❌ Backend connection failed.
+
+                    <br><br>
+
+                    Backend URL:
+                    ${BACKEND}
+
                 </div>
+
             `;
+
         }
+
     }
 
 
-    /* =========================================================
-       ALERT FUNCTION
-       THIS SENDS REQUEST TO:
+    /* =====================================================
+       🚨 ALERT FUNCTION
        POST /alert/trigger
-       ========================================================= */
+       ===================================================== */
 
-    async function alertZone(name, zoneId, riskScore) {
+    async function alertZone(
+        name,
+        zoneId,
+        riskScore
+    ) {
+
+        const score =
+            Number(riskScore || 0);
+
+
+        /* Confirm */
+
+        const confirmed =
+            confirm(
+
+                "🚨 LANDSLIDE ALERT\n\n" +
+
+                "Zone: " +
+                name +
+
+                "\nRisk Score: " +
+                score.toFixed(2) +
+
+                "\n\nAlert send karein?"
+
+            );
+
+
+        if (!confirmed) {
+
+            return;
+
+        }
+
 
         try {
 
-            /* Basic validation */
+            /* Show sending message */
 
-            if (
-                !BACKEND ||
-                BACKEND === "PASTE_YOUR_BACKEND_URL_HERE"
-            ) {
+            alert(
+                "⏳ Alert send ho raha hai..."
+            );
 
-                alert(
-                    "❌ Backend URL set nahi hai.\n\n" +
-                    "index.html me BACKEND variable me apna backend URL dalo."
+
+            const response =
+                await fetch(
+
+                    `${BACKEND}/alert/trigger`,
+
+                    {
+
+                        method: "POST",
+
+                        headers: {
+
+                            "Content-Type":
+                                "application/json"
+
+                        },
+
+                        body: JSON.stringify({
+
+                            zone_id:
+                                zoneId || name,
+
+                            risk_score:
+                                score,
+
+                            message:
+
+                                `🚨 HIGH LANDSLIDE RISK!\n` +
+
+                                `Zone: ${name}\n` +
+
+                                `Risk Score: ${score.toFixed(2)}\n\n` +
+
+                                `Please take necessary precautions immediately.`
+
+                        })
+
+                    }
+
                 );
 
-                return;
-            }
+
+            /* Backend response */
+
+            const data =
+                await response.json();
 
 
-            /* Confirm before sending */
-
-            const confirmAlert = confirm(
-                `🚨 Trigger landslide alert?\n\n` +
-                `Zone: ${name}\n` +
-                `Risk Score: ${Number(riskScore).toFixed(2)}`
+            console.log(
+                "ALERT RESPONSE:",
+                data
             );
-
-
-            if (!confirmAlert) {
-                return;
-            }
-
-
-            /* Send request to FastAPI */
-
-            const response = await fetch(
-                `${BACKEND}/alert/trigger`,
-                {
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-
-                    body: JSON.stringify({
-
-                        zone_id: zoneId || name,
-
-                        risk_score: Number(riskScore || 0.8),
-
-                        message:
-                            `🚨 HIGH LANDSLIDE RISK in ${name}. ` +
-                            `Risk score: ${Number(riskScore || 0.8).toFixed(2)}. ` +
-                            `Please take necessary precautions.`
-
-                    })
-                }
-            );
-
-
-            /* Read backend response */
-
-            const data = await response.json();
 
 
             if (!response.ok) {
 
                 throw new Error(
+
                     data.detail ||
                     "Alert request failed"
+
                 );
+
             }
 
 
-            console.log("Alert response:", data);
-
-
-            /* Success */
+            /* SUCCESS */
 
             alert(
-                `✅ ALERT REQUEST SENT!\n\n` +
-                `Zone: ${name}\n` +
-                `Risk Score: ${Number(riskScore).toFixed(2)}\n\n` +
-                `Backend ne alert request receive kar li hai.`
+
+                "✅ ALERT SENT SUCCESSFULLY!\n\n" +
+
+                "Zone: " +
+                name +
+
+                "\nRisk Score: " +
+                score.toFixed(2) +
+
+                "\n\n" +
+
+                "Backend ne alert request receive kar li hai."
+
             );
 
 
@@ -624,12 +767,20 @@
 
         catch (error) {
 
-            console.error("Alert error:", error);
+            console.error(
+                "Alert error:",
+                error
+            );
+
 
             alert(
-                `❌ ALERT FAILED!\n\n` +
-                `${error.message}\n\n` +
-                `Backend URL aur Twilio environment variables check karo.`
+
+                "❌ ALERT FAILED!\n\n" +
+
+                error.message +
+
+                "\n\nBackend aur Twilio settings check karo."
+
             );
 
         }
@@ -637,140 +788,174 @@
     }
 
 
-    /* =========================================================
+    /* =====================================================
        CITIZEN REPORT
-       POST /citizen-report
-       ========================================================= */
+       ===================================================== */
 
     document
         .getElementById("reportForm")
-        .addEventListener("submit", async function(event) {
+        .addEventListener(
+            "submit",
+            async function(event) {
 
-            event.preventDefault();
-
-
-            const messageBox =
-                document.getElementById("reportMessage");
+                event.preventDefault();
 
 
-            messageBox.style.display = "none";
+                const messageBox =
+                    document.getElementById(
+                        "reportMessage"
+                    );
 
 
-            try {
-
-                const formData = new FormData();
-
-
-                formData.append(
-                    "lat",
-                    document.getElementById("latitude").value
-                );
+                messageBox.style.display =
+                    "none";
 
 
-                formData.append(
-                    "lon",
-                    document.getElementById("longitude").value
-                );
+                try {
 
+                    const formData =
+                        new FormData();
 
-                formData.append(
-                    "description",
-                    document.getElementById("description").value
-                );
-
-
-                const photo =
-                    document.getElementById("photo").files[0];
-
-
-                if (photo) {
 
                     formData.append(
-                        "photo",
-                        photo
+                        "lat",
+                        document.getElementById(
+                            "latitude"
+                        ).value
                     );
 
-                }
+
+                    formData.append(
+                        "lon",
+                        document.getElementById(
+                            "longitude"
+                        ).value
+                    );
 
 
-                const response = await fetch(
-                    `${BACKEND}/citizen-report`,
-                    {
-                        method: "POST",
-                        body: formData
+                    formData.append(
+                        "description",
+                        document.getElementById(
+                            "description"
+                        ).value
+                    );
+
+
+                    const photo =
+                        document.getElementById(
+                            "photo"
+                        ).files[0];
+
+
+                    if (photo) {
+
+                        formData.append(
+                            "photo",
+                            photo
+                        );
+
                     }
-                );
 
 
-                const data = await response.json();
+                    const response =
+                        await fetch(
+
+                            `${BACKEND}/citizen-report`,
+
+                            {
+                                method: "POST",
+                                body: formData
+                            }
+
+                        );
 
 
-                if (!response.ok) {
+                    const data =
+                        await response.json();
 
-                    throw new Error(
-                        data.detail ||
-                        "Report submission failed"
-                    );
+
+                    if (!response.ok) {
+
+                        throw new Error(
+
+                            data.detail ||
+                            "Report submission failed"
+
+                        );
+
+                    }
+
+
+                    messageBox.className =
+                        "message success";
+
+
+                    messageBox.style.display =
+                        "block";
+
+
+                    messageBox.innerHTML =
+                        "✅ Citizen report successfully submitted!";
+
+
+                    document
+                        .getElementById(
+                            "reportForm"
+                        )
+                        .reset();
+
 
                 }
 
+                catch (error) {
 
-                messageBox.className =
-                    "message success";
-
-                messageBox.style.display =
-                    "block";
-
-                messageBox.innerHTML =
-                    "✅ Citizen report successfully submitted!";
+                    console.error(error);
 
 
-                document
-                    .getElementById("reportForm")
-                    .reset();
+                    messageBox.className =
+                        "message error";
 
 
-            }
-
-            catch (error) {
-
-                console.error(error);
+                    messageBox.style.display =
+                        "block";
 
 
-                messageBox.className =
-                    "message error";
+                    messageBox.innerHTML =
+                        "❌ Report submit nahi hua: " +
+                        error.message;
 
-                messageBox.style.display =
-                    "block";
-
-                messageBox.innerHTML =
-                    "❌ Report submit nahi hua: " +
-                    error.message;
+                }
 
             }
+        );
 
-        });
 
-
-    /* =========================================================
+    /* =====================================================
        BACKEND HEALTH CHECK
-       GET /
-       ========================================================= */
+       ===================================================== */
 
     async function checkBackend() {
 
         const status =
-            document.getElementById("backendStatus");
+            document.getElementById(
+                "backendStatus"
+            );
 
 
         try {
 
             const response =
-                await fetch(`${BACKEND}/`);
+                await fetch(
+                    `${BACKEND}/`
+                );
 
 
             if (!response.ok) {
-                throw new Error("Backend offline");
+
+                throw new Error(
+                    "Backend offline"
+                );
+
             }
 
 
@@ -816,9 +1001,9 @@
     }
 
 
-    /* =========================================================
-       START APPLICATION
-       ========================================================= */
+    /* =====================================================
+       START
+       ===================================================== */
 
     checkBackend();
 
